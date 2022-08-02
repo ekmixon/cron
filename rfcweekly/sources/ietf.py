@@ -19,7 +19,7 @@ class IETF:
         if not os.path.exists(self.cache_path):
             return seen
         with open(self.cache_path) as cache:
-            for line in cache.readlines():
+            for line in cache:
                 rfc_id = line.strip()
                 seen[rfc_id] = True
         return seen
@@ -27,30 +27,28 @@ class IETF:
     def fetch(self):
         response = requests.get(INDEX_URL)
         if not response.ok:
-            raise Exception('Failed to fetch IETF results: {}'.format(
-                response.text))
-        cache_file = open(self.cache_path, 'w')
-        tree = fromstring(response.text)
-        for rfc in tree.findall(NS + 'rfc-entry'):
-            rfc_id = rfc.find(NS + 'doc-id').text
-            cache_file.write(rfc_id + '\n')
-            if rfc_id in self.cache:
-                continue
-            abstract = ''
-            abstract_elem = rfc.find(NS + 'abstract')
-            if abstract_elem:
-                abstract = ' '.join(p.text
-                                    for p in abstract_elem.findall(NS + 'p'))
-            authors = ', '.join(
-                author.find(NS + 'name').text
-                for author in rfc.findall(NS + 'author'))
-            url = RFC_URL.format(rfc_id.lower())
-            yield {
-                'wg': WG,
-                'id': rfc_id,
-                'title': rfc.find(NS + 'title').text,
-                'abstract': abstract,
-                'authors': authors,
-                'url': url
-            }
-        cache_file.close()
+            raise Exception(f'Failed to fetch IETF results: {response.text}')
+        with open(self.cache_path, 'w') as cache_file:
+            tree = fromstring(response.text)
+            for rfc in tree.findall(f'{NS}rfc-entry'):
+                rfc_id = rfc.find(f'{NS}doc-id').text
+                cache_file.write(rfc_id + '\n')
+                if rfc_id in self.cache:
+                    continue
+                abstract = ''
+                if abstract_elem := rfc.find(f'{NS}abstract'):
+                    abstract = ' '.join(p.text for p in abstract_elem.findall(f'{NS}p'))
+                authors = ', '.join(
+                    author.find(f'{NS}name').text
+                    for author in rfc.findall(f'{NS}author')
+                )
+
+                url = RFC_URL.format(rfc_id.lower())
+                yield {
+                    'wg': WG,
+                    'id': rfc_id,
+                    'title': rfc.find(f'{NS}title').text,
+                    'abstract': abstract,
+                    'authors': authors,
+                    'url': url,
+                }

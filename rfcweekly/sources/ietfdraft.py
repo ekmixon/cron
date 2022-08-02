@@ -18,7 +18,7 @@ class IETFDraft:
         if not os.path.exists(self.cache_path):
             return seen
         with open(self.cache_path) as cache:
-            for line in cache.readlines():
+            for line in cache:
                 rfc_id = line.strip()
                 seen[rfc_id] = True
         return seen
@@ -26,22 +26,20 @@ class IETFDraft:
     def fetch(self):
         response = requests.get(INDEX_URL)
         if not response.ok:
-            raise Exception('Failed to fetch IETF Draft results: {}'.format(
-                response.text))
-        cache_file = open(self.cache_path, 'w')
-        soup = BeautifulSoup(response.text, 'html5lib')
-        rows = soup.findAll('td', 'doc')
-        for row in rows:
-            rfc_id = row.find('a').text.strip()
-            url = RFC_URL.format(rfc_id)
-            title = row.find('b').text.strip()
-            cache_file.write(rfc_id + '\n')
-            if rfc_id in self.cache:
-                continue
-            yield {
-                'wg': WG,
-                'id': rfc_id,
-                'title': title,
-                'url': url
-            }
-        cache_file.close()
+            raise Exception(f'Failed to fetch IETF Draft results: {response.text}')
+        with open(self.cache_path, 'w') as cache_file:
+            soup = BeautifulSoup(response.text, 'html5lib')
+            rows = soup.findAll('td', 'doc')
+            for row in rows:
+                rfc_id = row.find('a').text.strip()
+                url = RFC_URL.format(rfc_id)
+                title = row.find('b').text.strip()
+                cache_file.write(rfc_id + '\n')
+                if rfc_id in self.cache:
+                    continue
+                yield {
+                    'wg': WG,
+                    'id': rfc_id,
+                    'title': title,
+                    'url': url
+                }

@@ -18,7 +18,7 @@ class W3C:
         if not os.path.exists(self.cache_path):
             return seen
         with open(self.cache_path) as cache:
-            for line in cache.readlines():
+            for line in cache:
                 rfc_id = line.strip()
                 seen[rfc_id] = True
         return seen
@@ -32,57 +32,50 @@ class W3C:
         if not response.ok:
             return ''
         soup = BeautifulSoup(response.text, 'html5lib')
-        abstract = '\n'.join(p.text for p in soup.find('section', {
-            'id': 'abstract'
-        }).findAll('p'))
-        return abstract
+        return '\n'.join(
+            p.text for p in soup.find('section', {'id': 'abstract'}).findAll('p')
+        )
 
     def fetch(self):
         response = requests.get(INDEX_URL)
         if not response.ok:
-            raise Exception('Failed to fetch IETF results: {}'.format(
-                response.text))
+            raise Exception(f'Failed to fetch IETF results: {response.text}')
 
-        cache_file = open(self.cache_path, 'w')
-        soup = BeautifulSoup(response.text, 'html5lib')
-        for elem in soup.find('ul', {
-                'id': 'container'
-        }).findAll('li', recursive=False):
-            title_elem = elem.find('h2').find('a')
-            rfc_url = title_elem['href']
-            title = title_elem.text
-            cache_file.write(rfc_url + '\n')
-            if rfc_url in self.cache:
-                continue
-            # I'm not interested in some specs, like language gap analysis
-            tags = elem.find('ul', 'taglist')
-            if tags:
-                skip = False
-                for tag in tags.findAll('li'):
-                    tag = tag.text.strip()
-                    if tag in TAG_BLOCKLIST:
-                        print('Skipping {} because {} is in the blocklist'.
-                              format(title, tag))
-                        skip = True
-                        break
-                if skip:
+        with open(self.cache_path, 'w') as cache_file:
+            soup = BeautifulSoup(response.text, 'html5lib')
+            for elem in     soup.find('ul', {
+                    'id': 'container'
+            }).findAll('li', recursive=False):
+                title_elem = elem.find('h2').find('a')
+                rfc_url = title_elem['href']
+                title = title_elem.text
+                cache_file.write(rfc_url + '\n')
+                if rfc_url in self.cache:
                     continue
-            abstract = ''
-            try:
-                abstract = self.fetch_abstract(rfc_url).strip()
-            except Exception as e:
-                print(e)
-            authors = ''
-            author_elem = elem.find('ul', 'editorlist')
-            if author_elem:
-                authors = ', '.join(author.text.strip()
-                                    for author in author_elem.findAll('li'))
-            yield {
-                'wg': WG,
-                'id': rfc_url,
-                'title': title,
-                'abstract': abstract,
-                'authors': authors,
-                'url': rfc_url
-            }
-        cache_file.close()
+                if tags := elem.find('ul', 'taglist'):
+                    skip = False
+                    for tag in tags.findAll('li'):
+                        tag = tag.text.strip()
+                        if tag in TAG_BLOCKLIST:
+                            print(f'Skipping {title} because {tag} is in the blocklist')
+                            skip = True
+                            break
+                    if skip:
+                        continue
+                abstract = ''
+                try:
+                    abstract = self.fetch_abstract(rfc_url).strip()
+                except Exception as e:
+                    print(e)
+                authors = ''
+                if author_elem := elem.find('ul', 'editorlist'):
+                    authors = ', '.join(author.text.strip()
+                                        for author in author_elem.findAll('li'))
+                yield {
+                    'wg': WG,
+                    'id': rfc_url,
+                    'title': title,
+                    'abstract': abstract,
+                    'authors': authors,
+                    'url': rfc_url
+                }

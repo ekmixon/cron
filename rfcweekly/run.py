@@ -56,8 +56,7 @@ def send_emails(mailer, rfcs, drafts):
             group_id=int(os.environ.get('RFCWEEKLY_SENDGRID_GROUP')))
         try:
             mailer.send(mail)
-            print('{} new RFCs sent for the week of {}'.format(
-                len(rfcs), week))
+            print(f'{len(rfcs)} new RFCs sent for the week of {week}')
         except Exception as e:
             print(e.to_dict)
 
@@ -68,7 +67,7 @@ def main():
     rfcs = fetch_rfcs()
     drafts = fetch_drafts()
     if not rfcs and not drafts:
-        print('No RFCS for the week of {}'.format(week))
+        print(f'No RFCS for the week of {week}')
         return
     if os.environ.get('DISABLE_MAIL_SENDING'):
         print(
